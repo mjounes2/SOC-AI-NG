@@ -1587,6 +1587,25 @@ async def handle_tools_list(params: Dict[str, Any], session: MCPSession) -> Dict
             "inputSchema": {"type": "object", "properties": {}, "required": []},
         },
         {
+            "name": "add_wazuh_rule",
+            "description": "[ACTION] Add a new Wazuh detection rule in XML format. Risk: MEDIUM, Reversible.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "rule_content": {
+                        "type": "string",
+                        "description": "XML content of the rule(s) to add. Must be valid XML format with <rule> elements.",
+                    },
+                    "rule_filename": {
+                        "type": "string",
+                        "default": "custom_rules.xml",
+                        "description": "Name of the rule file to create (e.g., 'my_rules.xml')",
+                    },
+                },
+                "required": ["rule_content"],
+            },
+        },
+        {
             "name": "get_wazuh_remoted_stats",
             "description": "Get Wazuh remoted (agent communication) statistics",
             "inputSchema": {"type": "object", "properties": {}, "required": []},
@@ -2161,6 +2180,23 @@ async def handle_tools_call(params: Dict[str, Any], session: MCPSession) -> Dict
             result = await wazuh_client.get_rules_summary()
             _success = True
             return _tool_result(f"Rules Summary:\n{json.dumps(result, indent=2, default=str)}")
+
+        elif tool_name == "add_wazuh_rule":
+            rule_content = arguments.get("rule_content")
+            if not rule_content or not str(rule_content).strip():
+                raise ToolValidationError("rule_content", "is required and cannot be empty", "Provide valid XML rule content")
+            
+            rule_content = str(rule_content).strip()
+            rule_filename = arguments.get("rule_filename", "custom_rules.xml")
+            rule_filename = str(rule_filename).strip() if rule_filename else "custom_rules.xml"
+            
+            # Validate that rule_content is provided and not too large (max 1MB)
+            if len(rule_content) > 1048576:
+                raise ToolValidationError("rule_content", "exceeds maximum size of 1MB", "Reduce the rule content size")
+            
+            result = await wazuh_client.add_rule(rule_content, rule_filename)
+            _success = True
+            return _tool_result(f"Rule Addition Result:\n{json.dumps(result, indent=2, default=str)}")
 
         elif tool_name == "get_wazuh_remoted_stats":
             result = await wazuh_client.get_remoted_stats()

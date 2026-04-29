@@ -19,11 +19,12 @@ services:
     image: wazuh-main-server:${VERSION:-4.2.1}
     container_name: wazuh-main-server
     hostname: wazuh-main-server
+    network_mode: host
     
     restart: unless-stopped
     init: true
     
-    env_file: 
+    env_file:
       - .env
     environment:
       # Runtime overrides
@@ -32,9 +33,20 @@ services:
       ENVIRONMENT: production
       # Authentication mode: oauth (recommended), bearer (default), none (dev only)
       AUTH_MODE: ${AUTH_MODE:-bearer}
+      # Wazuh connection settings
+      WAZUH_HOST: localhost
+      WAZUH_USER: wazuh-wui
+      WAZUH_PASS: MyS3cr37P450r.*-
+      WAZUH_PORT: 55000
+      WAZUH_VERIFY_SSL: "false"
+      # Indexer settings
+      WAZUH_INDEXER_HOST: localhost
+      WAZUH_INDEXER_PORT: 9200
+      WAZUH_INDEXER_USER: admin
+      WAZUH_INDEXER_PASS: SecretPassword
+      WAZUH_INDEXER_VERIFY_SSL: "false"
       
-    ports:
-      - "${MCP_PORT:-3000}:3000"
+    # Ports are exposed via network_mode: host
     
     # Modern health check with curl
     healthcheck:

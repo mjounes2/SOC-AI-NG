@@ -122,7 +122,10 @@ class WazuhConfig:
 
         # Parse optional settings with validation
         port = safe_int_env("WAZUH_PORT", "55000", min_val=1, max_val=65535)
-        verify_ssl = os.getenv("VERIFY_SSL", "true").lower() == "true"
+        verify_ssl_value = os.getenv("WAZUH_VERIFY_SSL")
+        if verify_ssl_value is None:
+            verify_ssl_value = os.getenv("VERIFY_SSL", "true")
+        verify_ssl = str(verify_ssl_value).lower() == "true"
 
         # Normalize host values (strip protocol if user included it)
         normalized_host = normalize_host(host)

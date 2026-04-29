@@ -253,11 +253,89 @@ class WazuhClient:
         """Get detailed information about a specific rule."""
         return await self._request("GET", f"/rules/{rule_id}")
 
+    async def get_rule_files(self, **params) -> Dict[str, Any]:
+        """Get Wazuh rule files list."""
+        return await self._request("GET", "/rules/files", params=params)
+
     async def get_decoders(self, **params) -> Dict[str, Any]:
         """Get Wazuh log decoders (cached for 5 minutes)."""
         # Use caching for decoders as they rarely change
         cache_key = f"decoders:{sorted(params.items()) if params else 'all'}"
         return await self._get_cached(cache_key, "/decoders", params=params)
+
+    async def add_rule(
+        self,
+        rule_content: str,
+        rule_filename: str = "custom_rules.xml",
+        overwrite: bool = False,
+    ) -> Dict[str, Any]:
+        """Add a new Wazuh detection rule.
+        
+        Args:
+            rule_content: XML content of the rule(s) to add
+            rule_filename: Name of the rule file (default: custom_rules.xml)
+            overwrite: Whether to overwrite an existing rule file
+            
+        Returns:
+            Result containing rule creation status
+        """
+        # Validate XML structure
+        import xml.etree.ElementTree as ET
+        
+        try:
+            # Try to parse the XML to validate structure
+            root = ET.fromstring(rule_content)
+        except ET.ParseError as e:
+            raise ValueError(f"Invalid XML format: {str(e)}")
+        except Exception as e:
+            raise ValueError(f"Error parsing rule XML: {str(e)}")
+        
+        # Ensure filename has .xml extension
+        if not rule_filename.endswith('.xml'):
+            rule_filename = f"{rule_filename}.xml"
+        
+        # Sanitize filename to prevent path traversal
+        rule_filename = rule_filename.replace('..', '').replace('/', '').replace('\\', '')
+        
+        try:
+            # PUT the rule file content to Wazuh API
+            # The proper endpoint is /rules/files/{file_name}
+            params = {}
+            if overwrite:
+                params["overwrite"] = "true"
+            result = await self._request(
+                "PUT",
+                f"/rules/files/{rule_filename}",
+                params=params,
+                content=rule_content,
+                headers={"Content-Type": "application/octet-stream"}
+            )
+
+            # Invalidate cache since we're adding a new rule
+            self._invalidate_cache_pattern("rules:")
+
+            return {
+                "data": {
+                    "status": "success",
+                    "message": f"Rule file '{rule_filename}' created successfully",
+                    "file_name": rule_filename,
+                    "affected_items": result.get("data", {}).get("affected_items", [])
+                }
+            }
+        except ValueError as e:
+            if "XML" in str(e) or "parse" in str(e).lower():
+                raise
+            # API returned error
+            raise ValueError(f"Failed to add rule: {str(e)}")
+        except Exception as e:
+            raise ValueError(f"Error adding rule: {str(e)}")
+
+    def _invalidate_cache_pattern(self, pattern: str):
+        """Invalidate cache entries matching a pattern."""
+        keys_to_remove = [k for k in self._cache.keys() if k.startswith(pattern)]
+        for key in keys_to_remove:
+            del self._cache[key]
+        logger.debug(f"Invalidated {len(keys_to_remove)} cache entries matching pattern '{pattern}'")
 
     async def execute_active_response(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Execute active response command on agents (4.8+ removed 'custom' parameter)."""
@@ -454,6 +532,10 @@ class WazuhClient:
 
         url = f"{self.config.base_url}{endpoint}"
         headers = {"Authorization": f"Bearer {self.token}"}
+        extra_headers = kwargs.pop("headers", None)
+        if extra_headers:
+            # Preserve custom headers while ensuring authorization is included.
+            headers.update(extra_headers)
 
         try:
             response = await self.client.request(method, url, headers=headers, **kwargs)

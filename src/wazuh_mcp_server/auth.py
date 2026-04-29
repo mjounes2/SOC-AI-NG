@@ -311,7 +311,21 @@ async def verify_bearer_token(authorization: str) -> AuthToken:
             return token_obj
         raise ValueError("Invalid or expired session token")
 
-    # Second, try JWT token validation (tokens from /auth/token endpoint)
+    # Second, allow direct API key authentication for long-lived keys
+    if token.startswith("wazuh_"):
+        api_key_obj = auth_manager.validate_api_key(token)
+        if api_key_obj:
+            return AuthToken(
+                token=token,
+                api_key_id=api_key_obj.id,
+                created_at=datetime.now(timezone.utc),
+                expires_at=api_key_obj.expires_at,
+                scopes=api_key_obj.scopes or ["wazuh:read", "wazuh:write"],
+                metadata={"api_key_name": api_key_obj.name, **api_key_obj.metadata},
+            )
+        raise ValueError("Invalid or expired API key")
+
+    # Third, try JWT token validation (tokens from /auth/token endpoint)
     try:
         # Import config to get the same secret key used for token creation
         from wazuh_mcp_server.config import get_config
