@@ -278,6 +278,7 @@ We welcome contributions. See [Issues](https://github.com/gensecaihq/Wazuh-MCP-S
 
 | Avatar | Username | Contributions |
 |--------|----------|---------------|
+| <img src="https://github.com/actions-user.png" width="40" height="40" style="border-radius: 50%"/> | [@actions-user](https://github.com/actions-user) | 💻 Code |
 | <img src="https://github.com/aiunmukto.png" width="40" height="40" style="border-radius: 50%"/> | [@aiunmukto](https://github.com/aiunmukto) | 💻 Code |
 | <img src="https://github.com/alokemajumder.png" width="40" height="40" style="border-radius: 50%"/> | [@alokemajumder](https://github.com/alokemajumder) | 💻 Code |
 | <img src="https://github.com/gensecai-dev.png" width="40" height="40" style="border-radius: 50%"/> | [@gensecai-dev](https://github.com/gensecai-dev) | 💻 Code |
